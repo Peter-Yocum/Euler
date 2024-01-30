@@ -15,8 +15,11 @@ go do their own implementation
 """
 
 from functools import lru_cache
+import math
 
 from utils.decorators import timed
+
+from numba import jit, int32, float64
 
 
 def get_fibonacci_at_position_recursive(position: int):
@@ -59,24 +62,57 @@ def get_fibonacci_at_position_cached(position: int):
     return get_fibonacci_at_position_cached(position - 2) + get_fibonacci_at_position_cached(position - 1)
 
 
-def get_fibonacci_at_position_formula(position: int):
+def get_fibonacci_at_position_formula_python(position: int):
     """
     fibonacci numbers can be directly calculated thanks to good mathematicians
     direct calculation taken from https://stackoverflow.com/questions/50622088/fibonacci-direct-calculation-formula
 
-    >>> get_fibonacci_at_position_formula(10)
+    >>> get_fibonacci_at_position_formula_python(10)
     89
-    >>> get_fibonacci_at_position_formula(11)
+    >>> get_fibonacci_at_position_formula_python(11)
     144
-    >>> get_fibonacci_at_position_formula(12)
+    >>> get_fibonacci_at_position_formula_python(12)
     233
 
     :param position: an integer representing the position in the sequence of fibonacci numbers we want
     :return: the fibonacci number at the given position
     """
-    phi = (1 + 5 ** .5) / 2
-    psi = (1 - 5 ** .5) / 2
-    return int((phi ** (position + 1) - psi ** (position + 1)) / 5 ** .5)
+    phi = (1 + math.sqrt(5)) / 2
+    psi = (1 - math.sqrt(5)) / 2
+    return int((phi ** (position + 1) - psi ** (position + 1)) / math.sqrt(5))
+
+
+@jit(float64(float64, int32))
+def exponentiation(base: float, power: int):
+    """
+    A function to compile exponentiation
+
+
+    """
+    return base ** power
+
+
+# you have to specify the type float64 here to get the compiled code to have enough precision to not round down
+@jit(int32(float64))
+def get_fibonacci_at_position_formula_numba_compiled(position: int):
+    """
+    fibonacci numbers can be directly calculated thanks to good mathematicians
+    direct calculation taken from https://stackoverflow.com/questions/50622088/fibonacci-direct-calculation-formula
+
+    >>> get_fibonacci_at_position_formula_numba_compiled(10)
+    89
+    >>> get_fibonacci_at_position_formula_numba_compiled(11)
+    144
+    >>> get_fibonacci_at_position_formula_numba_compiled(12)
+    233
+
+    :param position: an integer representing the position in the sequence of fibonacci numbers we want
+    :return: the fibonacci number at the given position
+    """
+    # can possibly clean this up but I'm ok with it for now
+    phi = (1 + math.sqrt(5)) / 2
+    psi = (1 - math.sqrt(5)) / 2
+    return round((exponentiation(phi, position + 1) - exponentiation(psi, position + 1)) / math.sqrt(5))
 
 
 @timed
@@ -122,7 +158,8 @@ def main():
     """
     fibonacci_functions = [get_fibonacci_at_position_recursive,
                            get_fibonacci_at_position_cached,
-                           get_fibonacci_at_position_formula]
+                           get_fibonacci_at_position_formula_python,
+                           get_fibonacci_at_position_formula_numba_compiled]
     for func in fibonacci_functions:
         fibonacci_handler(func)
 
